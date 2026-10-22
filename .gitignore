@@ -1,0 +1,21 @@
+# Terraform : état (contient des identifiants et des données sensibles), variables locales, plugins
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+*.tfplan
+crash.log
+
+# Clés et secrets
+*.pem
+*.key
+.env
+
+# Journaux d'exécution et livrables locaux
+Livrables/
+*.log
+
+# Système
+.DS_Store
+__MACOSX/
+Thumbs.db

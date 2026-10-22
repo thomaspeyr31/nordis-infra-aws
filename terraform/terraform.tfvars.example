@@ -1,0 +1,4 @@
+# Copier en terraform.tfvars et compléter (terraform.tfvars est ignoré par git).
+cle_ssh  = "nordis"
+mon_ip   = "x.x.x.x/32"
+ami_fw01 = "ami-xxxxxxxxxxxxxxxxx"   # image FreeBSD 15.1 d'AWS (SSM /aws/service/freebsd/amd64/base/ufs/15.1/RELEASE)

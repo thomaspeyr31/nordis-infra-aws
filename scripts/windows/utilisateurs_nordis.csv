@@ -1,0 +1,19 @@
+﻿Prenom,Nom,Service,Fonction,SamAccountName,UserPrincipalName,Mail,OU,Groupe,MotDePasseInitial
+Sofia,Lindqvist,Direction,Directrice générale,s.lindqvist,s.lindqvist@nordis.fr,s.lindqvist@nordis.fr,"OU=Direction,OU=Nordis,DC=ad,DC=nordis,DC=test",Grp_Direction,A-Changer-2026!
+Marc,Ferreira,Direction,Directeur adjoint,m.ferreira,m.ferreira@nordis.fr,m.ferreira@nordis.fr,"OU=Direction,OU=Nordis,DC=ad,DC=nordis,DC=test",Grp_Direction,A-Changer-2026!
+Nadia,Benali,Direction,Assistante de direction,n.benali,n.benali@nordis.fr,n.benali@nordis.fr,"OU=Direction,OU=Nordis,DC=ad,DC=nordis,DC=test",Grp_Direction,A-Changer-2026!
+Claire,Dubois,Administration,Responsable RH,c.dubois,c.dubois@nordis.fr,c.dubois@nordis.fr,"OU=Administration,OU=Nordis,DC=ad,DC=nordis,DC=test",Grp_Administration,A-Changer-2026!
+Hugo,Mercier,Administration,Gestionnaire paie,h.mercier,h.mercier@nordis.fr,h.mercier@nordis.fr,"OU=Administration,OU=Nordis,DC=ad,DC=nordis,DC=test",Grp_Administration,A-Changer-2026!
+Léa,Rousseau,Administration,Comptable,l.rousseau,l.rousseau@nordis.fr,l.rousseau@nordis.fr,"OU=Administration,OU=Nordis,DC=ad,DC=nordis,DC=test",Grp_Administration,A-Changer-2026!
+Camille,Garnier,Informatique,Responsable informatique (DSI),c.garnier,c.garnier@nordis.fr,c.garnier@nordis.fr,"OU=Informatique,OU=Nordis,DC=ad,DC=nordis,DC=test",Grp_IT,A-Changer-2026!
+Yanis,Hadad,Informatique,Administrateur systèmes et réseaux,y.hadad,y.hadad@nordis.fr,y.hadad@nordis.fr,"OU=Informatique,OU=Nordis,DC=ad,DC=nordis,DC=test",Grp_IT,A-Changer-2026!
+Pauline,Robert,Commercial,Responsable commercial,p.robert,p.robert@nordis.fr,p.robert@nordis.fr,"OU=Commercial,OU=Nordis,DC=ad,DC=nordis,DC=test",Grp_Commercial,A-Changer-2026!
+Paul,Lefevre,Commercial,Commercial,p.lefevre,p.lefevre@nordis.fr,p.lefevre@nordis.fr,"OU=Commercial,OU=Nordis,DC=ad,DC=nordis,DC=test",Grp_Commercial,A-Changer-2026!
+Inès,Moreau,Commercial,Commerciale,i.moreau,i.moreau@nordis.fr,i.moreau@nordis.fr,"OU=Commercial,OU=Nordis,DC=ad,DC=nordis,DC=test",Grp_Commercial,A-Changer-2026!
+Antoine,Girard,Commercial,Commercial,a.girard,a.girard@nordis.fr,a.girard@nordis.fr,"OU=Commercial,OU=Nordis,DC=ad,DC=nordis,DC=test",Grp_Commercial,A-Changer-2026!
+Karim,Saïdi,Logistique,Responsable logistique,k.saidi,k.saidi@nordis.fr,k.saidi@nordis.fr,"OU=Logistique,OU=Nordis,DC=ad,DC=nordis,DC=test",Grp_Logistique,A-Changer-2026!
+Elsa,Fontaine,Logistique,Gestionnaire de stock,e.fontaine,e.fontaine@nordis.fr,e.fontaine@nordis.fr,"OU=Logistique,OU=Nordis,DC=ad,DC=nordis,DC=test",Grp_Logistique,A-Changer-2026!
+Lucas,Henry,Logistique,Préparateur de commandes,l.henry,l.henry@nordis.fr,l.henry@nordis.fr,"OU=Logistique,OU=Nordis,DC=ad,DC=nordis,DC=test",Grp_Logistique,A-Changer-2026!
+Marine,Colin,Logistique,Agent d'expédition,m.colin,m.colin@nordis.fr,m.colin@nordis.fr,"OU=Logistique,OU=Nordis,DC=ad,DC=nordis,DC=test",Grp_Logistique,A-Changer-2026!
+Thomas,Peyrusaubes,Informatique,Administrateur systèmes et réseaux,t.peyrusaubes,t.peyrusaubes@nordis.fr,t.peyrusaubes@nordis.fr,"OU=Informatique,OU=Nordis,DC=ad,DC=nordis,DC=test",Grp_IT,A-Changer-2026!
+Thomas,Peyrusaubes,Informatique,Compte d'administration (adm-<login>),adm-t.peyrusaubes,adm-t.peyrusaubes@nordis.fr,,"OU=Comptes_Admin,OU=Nordis,DC=ad,DC=nordis,DC=test",GG-Admins-Linux,A-Changer-2026!
