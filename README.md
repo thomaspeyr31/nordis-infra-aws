@@ -8,6 +8,8 @@
 
 Système d'information d'une PME de 80 salariés, **construit** puis **sécurisé** sur AWS en deux travaux pratiques du Bachelor 3 Infrastructure & Cybersécurité (module A2627_5066 – Administration systèmes Linux/Windows).
 
+> **[Documentation technique complète des TP 1 et 2](DOCUMENTATION.md)** : le dossier d'exploitation demandé par le cahier des charges, chaque exigence reliée à sa réalisation et à sa preuve, avec 31 captures.
+
 ![Architecture AWS](tp1-infrastructure/docs/architecture-aws.png)
 
 ## Les deux TP
@@ -47,6 +49,7 @@ Système d'information d'une PME de 80 salariés, **construit** puis **sécuris�
 
 ```
 .
+├── DOCUMENTATION.md       Documentation technique complète des deux TP
 ├── tp1-infrastructure/    TP 1 – Infrastructure hybride
 │   ├── terraform/           VPC, routes, groupes de sécurité, instances, disques
 │   ├── firewall/            OPNsense : installation, filtrage entre sous-réseaux

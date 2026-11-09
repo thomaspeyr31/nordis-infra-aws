@@ -1,4 +1,4 @@
-[Accueil](../README.md) · **TP 1 – Infrastructure** · [TP 2 – DNS sécurisé](../tp2-dns-securise/README.md)
+[Accueil](../README.md) · **TP 1 – Infrastructure** · [TP 2 – DNS sécurisé](../tp2-dns-securise/README.md) · [Documentation complète](../DOCUMENTATION.md)
 
 # TP 1 – Infrastructure hybride Windows / Linux sur AWS
 

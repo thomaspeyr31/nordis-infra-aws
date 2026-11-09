@@ -1,4 +1,4 @@
-[Accueil](../README.md) · [TP 1 – Infrastructure](../tp1-infrastructure/README.md) · **TP 2 – DNS sécurisé**
+[Accueil](../README.md) · [TP 1 – Infrastructure](../tp1-infrastructure/README.md) · **TP 2 – DNS sécurisé** · [Documentation complète](../DOCUMENTATION.md)
 
 # TP 2 – DNS maîtrisé : chiffrement, filtrage et détection du contournement
 
