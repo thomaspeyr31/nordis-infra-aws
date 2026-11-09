@@ -56,7 +56,7 @@ Sortie Internet : NAT de FW01 (source `10.50.0.0/16` → adresse WAN).
 
 ## DNS, DHCP, temps
 
-- **DNS** : tous les hôtes interrogent FW01 (Unbound), donné par le jeu d'options DHCP du VPC. `ad.nordis.test` et `50.10.in-addr.arpa` → DC01/DC02 ; le reste → Quad9 (9.9.9.9, 149.112.112.112). Zone AD intégrée à l'annuaire, répliquée sur DC02.
+- **DNS** : tous les hôtes interrogent FW01 (Unbound), donné par le jeu d'options DHCP du VPC. `ad.nordis.test` et `50.10.in-addr.arpa` → DC01/DC02 ; le reste → Quad9 (9.9.9.9, 149.112.112.112). Zone AD intégrée à l'annuaire, répliquée sur DC02. Le [TP 2](../../tp2-dns-securise/README.md) durcit ce service : DNS over TLS, DNSSEC, blocklists, règles anti-contournement 1 à 4 placées avant les règles ci-dessus.
 - **DHCP** : adresses distribuées par le VPC. Rôle DHCP Windows configuré pour la démonstration : étendues 10.50.30/40/50.100-200, bail 8 jours, basculement DC01-DC02 en 50/50.
 - **Temps** : pools NTP → FW01 → DC01 (secours Amazon Time Sync) → DC02 et membres ; LNX01 sur les DC (chrony), LNX02 sur FW01.
 - **Ordre de démarrage** : FW01 → DC01, DC02 → LNX01 → SRV02, CLI01, LNX02. Arrêt dans l'ordre inverse.
