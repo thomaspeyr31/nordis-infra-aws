@@ -124,6 +124,8 @@ Les scripts Windows en 3 étapes détectent seuls l'étape à faire : on les rel
 | Test | Résultat |
 | --- | --- |
 | Réplication AD (`repadmin /replsummary`) | 0 échec |
+| RAID 5 + LVM sur LNX01 | `[UUU]`, 3 volumes logiques montés par UUID |
+| LNX01 dans l'AD (`realm list`) | Membre Kerberos de `ad.nordis.test`, comptes AD reconnus |
 | Session Direction | 6 lecteurs (H: + S: à W:) |
 | Session Commercial | H: et V: seulement, Direction refusé, USB interdit, `.exe` bloqué par AppLocker |
 | Sauvegarde → suppression → restauration | Fichier restauré à l'identique |
@@ -137,6 +139,7 @@ Les scripts Windows en 3 étapes détectent seuls l'étape à faire : on les rel
 | --- | --- |
 | ![Réplication AD](docs/captures/ad-replication.png) | ![Session Commercial](docs/captures/session-commercial-gpo.png) |
 | ![Sauvegarde et restauration](docs/captures/sauvegarde-restauration.png) | ![Rapport WSUS](docs/captures/wsus-rapport.png) |
+| ![RAID 5 et LVM sur LNX01](docs/captures/lnx01-raid-lvm.png) | ![Journaux Windows centralisés sur SRV02](docs/captures/srv02-wef-4625.png) |
 
 Toutes les captures : [`docs/captures`](docs/captures).
 

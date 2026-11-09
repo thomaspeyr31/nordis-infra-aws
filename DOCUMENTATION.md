@@ -171,7 +171,7 @@ Les services Windows couvrent les sections A à H du cahier des charges : annuai
 | D | Storage Spaces en miroir, quotas FSRM | Volume E: de 27 Go en miroir, 5 Go par partage, 1 Go par dossier personnel | Figure 6 |
 | E | WSUS, français, produits et classifications limités | Windows Server 2025, critiques et sécurité, approbation automatique | Figure 10 |
 | F | Sauvegarde planifiée, testée par une restauration | Tâche quotidienne, rétention 7 jours, restauration vérifiée | Figure 11 |
-| G | Windows Event Forwarding, audit sur les DC | Abonnement `Nordis-Securite` vers SRV02, audit des connexions et des comptes | Recette, partie Recette |
+| G | Windows Event Forwarding, audit sur les DC | Abonnement `Nordis-Securite` vers SRV02, audit des connexions et des comptes | Figure 16 |
 | H | Script de création d'utilisateurs (CSV ou interactif) | `05_Utilisateurs_AD.ps1` | Partie Déploiement |
 
 ### Annuaire et redondance
@@ -252,6 +252,8 @@ Les services Windows couvrent les sections A à H du cahier des charges : annuai
 - **Windows Event Forwarding** : SRV02 collecte l'abonnement `Nordis-Securite` (mode initié par la source) depuis DC01, DC02 et SRV02, dans le journal « Événements transférés ».
 - Événements suivis au quotidien : 4625 (échec de connexion), 4740 (compte verrouillé), 4720 (compte créé).
 
+Preuve : un échec de connexion provoqué sur DC02 est reçu sur SRV02 (figure 16, partie Recette).
+
 ### Sauvegarde
 
 - `07_Sauvegarde.ps1` copie `E:\Perso` et `E:\Partages`, droits NTFS compris, vers `E:\Sauvegardes\<date>`.
@@ -303,7 +305,7 @@ LNX01 est le serveur d'infrastructure (journaux, cache de paquets, stockage redo
 - **Paquets** récupérés via le cache de LNX01 (`http://10.50.10.20:3142`) : la DMZ n'a pas d'autre accès aux serveurs internes.
 - **Accès** : SSH par clé, sudo local.
 
-Le dépôt ne contient pas encore de capture des preuves Linux (`/proc/mdstat`, `lsblk`, `realm list`, dossiers de `/srv/journaux`). Les résultats figurent dans la partie Recette.
+Preuves : RAID et montages par UUID (figure 12), jonction au domaine (figure 13), journaux centralisés (figure 14) et isolement de la DMZ (figure 15), dans la partie Recette.
 
 ## TP 1 — Sécurité et filtrage
 
@@ -345,7 +347,7 @@ L'administrateur passe par l'EC2 Instance Connect Endpoint (sous-réseau Managem
 
 ## TP 1 — Recette
 
-Les 11 tests de recette sont passés : chaque fonction demandée a été vérifiée en situation, et 8 d'entre eux sont prouvés par une capture.
+Les 13 tests de recette sont passés, et chacun est prouvé par une capture : chaque fonction demandée a été vérifiée en situation.
 
 | Test | Méthode | Résultat | Preuve |
 | --- | --- | --- | --- |
@@ -357,9 +359,38 @@ Les 11 tests de recette sont passés : chaque fonction demandée a été vérifi
 | Session Commercial | Ouverture de session d'un commercial | H: et V: seulement, Direction refusé, USB interdit, `.exe` bloqué par AppLocker | Figure 9 |
 | WSUS | `11_Rapport_WSUS.ps1` | 4 ordinateurs à 100 %, 0 échec | Figure 10 |
 | Sauvegarde et restauration | Sauvegarde, suppression d'un fichier, restauration | Fichier restauré à l'identique | Figure 11 |
-| Journaux Windows | Échec de connexion volontaire sur DC02 | Événement 4625 reçu sur SRV02 (Événements transférés) | – |
-| Journaux Linux et intranet | Requête HTTP vers LNX02 | Intranet 200 OK, visite journalisée sur LNX01 | – |
-| Isolement de la DMZ | Depuis LNX02 vers DC01, puis vers le cache APT | DC01 bloqué, cache APT autorisé | – |
+| RAID 5 et LVM | `cat /proc/mdstat`, `lsblk`, `/etc/fstab` sur LNX01 | RAID 5 actif sur 3 disques `[UUU]`, 3 volumes logiques montés par UUID | Figure 12 |
+| LNX01 dans l'AD | `realm list`, `id adm-t.peyrusaubes@ad.nordis.test` | Membre Kerberos du domaine (sssd), compte AD reconnu avec ses groupes | Figure 13 |
+| Intranet et journaux Linux | Requête HTTP vers LNX02, puis lecture de `/srv/journaux` sur LNX01 | Intranet 200 OK, visite journalisée sur LNX01 | Figure 14 |
+| Isolement de la DMZ | Depuis LNX02 vers DC01 (445), puis vers le cache APT (3142) | DC01 bloqué, cache APT autorisé | Figure 15 |
+| Journaux Windows (WEF) | Échec de connexion volontaire vers DC02 | Événement 4625 de DC02 reçu sur SRV02 | Figure 16 |
+
+![Figure 12 — RAID 5 et LVM sur LNX01](tp1-infrastructure/docs/captures/lnx01-raid-lvm.png)
+
+*Figure 12 — LNX01 : `md0` en RAID 5 actif sur 3 disques (`[3/3] [UUU]`), 20 Go découpés en 3 volumes logiques, montés par UUID dans `/etc/fstab`.*
+
+![Figure 13 — LNX01 membre du domaine](tp1-infrastructure/docs/captures/lnx01-domaine.png)
+
+*Figure 13 — `realm list` : LNX01 est membre Kerberos de `ad.nordis.test`, via sssd.*
+
+Le compte d'administration du domaine est reconnu sur LNX01, avec ses groupes AD (`id adm-t.peyrusaubes@ad.nordis.test`) :
+
+```text
+uid=468801119(adm-t.peyrusaubes) gid=468800513(domain users)
+groups=468800513(domain users),468800512(domain admins),468801118(gg-admins-linux),468800572(denied rodc password replication group)
+```
+
+![Figure 14 — Intranet et journaux centralisés](tp1-infrastructure/docs/captures/lnx02-intranet-journaux.png)
+
+*Figure 14 — L'intranet de LNX02 répond (HTTP 200), et la visite est enregistrée sur LNX01, dans le dossier `lnx02` de `/srv/journaux`.*
+
+![Figure 15 — Isolement de la DMZ](tp1-infrastructure/docs/captures/lnx02-dmz-isolement.png)
+
+*Figure 15 — Depuis LNX02 (DMZ) : DC01 est injoignable, seul le cache APT de LNX01 est autorisé.*
+
+![Figure 16 — Journaux Windows centralisés](tp1-infrastructure/docs/captures/srv02-wef-4625.png)
+
+*Figure 16 — SRV02, journal « Événements transférés » : l'échec de connexion provoqué vers DC02 à 13 h 45 (événement 4625) est reçu. SRV02, également source, y remonte ses propres échecs.*
 
 Les rapports complets sont dans le dépôt : rapport HTML des GPO et rapport d'état WSUS en PDF (`tp1-infrastructure/docs/rapports`).
 
@@ -492,21 +523,21 @@ Unbound écoute sur le LAN seulement, envoie Internet à Quad9 en DNS over TLS (
 
 **Point délicat — interfaces.** Le choix « All » inclut le WAN : Unbound répondrait à Internet, comme un résolveur ouvert utilisable pour des attaques par amplification. Il faut sélectionner LAN seulement.
 
-**Point délicat — Quad9 en clair.** La configuration d'origine (TP 1) envoyait aussi les requêtes à Quad9 sur le port 53, en clair (deux dernières lignes de la figure 12). Ces lignes ont été supprimées et remplacées par les entrées DNS over TLS.
+**Point délicat — Quad9 en clair.** La configuration d'origine (TP 1) envoyait aussi les requêtes à Quad9 sur le port 53, en clair (deux dernières lignes de la figure 17). Ces lignes ont été supprimées et remplacées par les entrées DNS over TLS.
 
-![Figure 12 — Query Forwarding avant correction](tp2-dns-securise/captures/01-unbound-forwarding-avant.png)
+![Figure 17 — Query Forwarding avant correction](tp2-dns-securise/captures/01-unbound-forwarding-avant.png)
 
-*Figure 12 — Query Forwarding avant correction : la zone AD vers les DC, mais aussi Quad9 en port 53, en clair.*
+*Figure 17 — Query Forwarding avant correction : la zone AD vers les DC, mais aussi Quad9 en port 53, en clair.*
 
-![Figure 13 — DNS over TLS](tp2-dns-securise/captures/02-unbound-dot.png)
+![Figure 18 — DNS over TLS](tp2-dns-securise/captures/02-unbound-dot.png)
 
-*Figure 13 — DNS over TLS : les deux serveurs Quad9 en port 853 (le premier est le principal, le second le secours).*
+*Figure 18 — DNS over TLS : les deux serveurs Quad9 en port 853 (le premier est le principal, le second le secours).*
 
 **Point délicat — DNSSEC et la zone AD.** Le domaine `.test` n'est pas signé. Avec DNSSEC actif, Unbound rejetterait les réponses des DC (SERVFAIL) et plus aucune ouverture de session ne fonctionnerait. `ad.nordis.test` est donc déclaré en Insecure Domains (pas de validation) et en Private Domains (adresses privées acceptées).
 
-![Figure 14 — Domaines privés et non validés](tp2-dns-securise/captures/03-unbound-advanced-domaines.png)
+![Figure 19 — Domaines privés et non validés](tp2-dns-securise/captures/03-unbound-advanced-domaines.png)
 
-*Figure 14 — Advanced : `ad.nordis.test` en Insecure Domains, au-dessus des réglages de journalisation.*
+*Figure 19 — Advanced : `ad.nordis.test` en Insecure Domains, au-dessus des réglages de journalisation.*
 
 ### Vérification depuis LNX01
 
@@ -516,9 +547,9 @@ dig @10.50.0.20 +dnssec isc.org | grep flags     # flag ad : réponse validée p
 dig @10.50.0.20 +short dc01.ad.nordis.test       # 10.50.10.10 : zone AD transmise aux DC
 ```
 
-![Figure 15 — Tests depuis LNX01](tp2-dns-securise/captures/04-tests-resolution.png)
+![Figure 20 — Tests depuis LNX01](tp2-dns-securise/captures/04-tests-resolution.png)
 
-*Figure 15 — Tests depuis LNX01 : `"dot"`, flag `ad`, `10.50.10.10`, puis les tests de contournement de la partie suivante.*
+*Figure 20 — Tests depuis LNX01 : `"dot"`, flag `ad`, `10.50.10.10`, puis les tests de contournement de la partie suivante.*
 
 ## TP 2 — Interdire le contournement
 
@@ -535,15 +566,15 @@ Elles doivent précéder les règles 10 (Management) et 11 (Serveurs) du TP 1, q
 
 « Hors `10.50.0.0/16` » correspond à la case Invert Destination : la règle vise toute destination extérieure, sans gêner le DNS interne (DC, FW01).
 
-![Figure 16 — Création de la règle 1](tp2-dns-securise/captures/05-regle-dialogue.png)
+![Figure 21 — Création de la règle 1](tp2-dns-securise/captures/05-regle-dialogue.png)
 
-*Figure 16 — Création de la règle 1 (Firewall > Rules > LAN > +), section Filter : TCP/UDP, source 10.50.0.0/16, destination This Firewall, port 53.*
+*Figure 21 — Création de la règle 1 (Firewall > Rules > LAN > +), section Filter : TCP/UDP, source 10.50.0.0/16, destination This Firewall, port 53.*
 
-![Figure 17 — Règles DNS en tête](tp2-dns-securise/captures/06-regles-dns.png)
+![Figure 22 — Règles DNS en tête](tp2-dns-securise/captures/06-regles-dns.png)
 
-*Figure 17 — Les règles DNS en tête de la liste, avant « Management vers tout » et « Serveurs vers tout ». La croix rouge signale un blocage, la cloche une règle journalisée.*
+*Figure 22 — Les règles DNS en tête de la liste, avant « Management vers tout » et « Serveurs vers tout ». La croix rouge signale un blocage, la cloche une règle journalisée.*
 
-**Point délicat — copier une règle, pas la modifier.** Pour créer une règle proche d'une autre, il faut cliquer sur l'icône copier (deux carrés), pas sur le crayon juste à côté. Pendant le TP, la règle DoT a été modifiée par erreur au lieu d'être copiée : le port 853 s'est retrouvé ouvert sans alerte, et seul un nouveau test l'a révélé (figure 31). Après chaque modification du pare-feu, on relance tous les tests.
+**Point délicat — copier une règle, pas la modifier.** Pour créer une règle proche d'une autre, il faut cliquer sur l'icône copier (deux carrés), pas sur le crayon juste à côté. Pendant le TP, la règle DoT a été modifiée par erreur au lieu d'être copiée : le port 853 s'est retrouvé ouvert sans alerte, et seul un nouveau test l'a révélé (figure 36). Après chaque modification du pare-feu, on relance tous les tests.
 
 Les règles ont été créées dans l'interface web. Le script `tp2-dns-securise/firewall/fw01_dns.sh` du dépôt les reproduit à l'identique, ignore ce qui existe déjà et revient seul en arrière au bout de 3 minutes sans confirmation.
 
@@ -555,7 +586,7 @@ Les règles ont été créées dans l'interface web. Le script `tp2-dns-securise
 | DNS via FW01 | `dig @10.50.0.20 +short wordpress.org` | une adresse | `66.6.42.252` |
 | DoT direct | `timeout 3 bash -c '</dev/tcp/9.9.9.9/853'` | refusé | `853 BLOQUÉ` |
 
-Ces trois résultats figurent sur la figure 15.
+Ces trois résultats figurent sur la figure 20.
 
 ## TP 2 — Preuves : clair sur le LAN, chiffré sur le WAN
 
@@ -584,9 +615,9 @@ Aucune ligne en `.53`, aucun nom lisible, et seule l'adresse WAN de FW01 appara�
 | 2 | `drill dnssec-failed.org @127.0.0.1` | `SERVFAIL` | Domaine de test volontairement mal signé : DNSSEC refuse la réponse |
 | 3 | DoT passé sur le port 854, puis `tcpdump -ni ena0 'port 53'` | `0 packets captured` | Quand le DoT est cassé, Unbound échoue au lieu de repasser en clair |
 
-![Figure 18 — tcpdump LAN, DNSSEC, non-repli](tp2-dns-securise/captures/07-tcpdump-lan-dnssec-repli.png)
+![Figure 23 — tcpdump LAN, DNSSEC, non-repli](tp2-dns-securise/captures/07-tcpdump-lan-dnssec-repli.png)
 
-*Figure 18 — `tcpdump` sur le LAN avec le nom `lequipe.fr` en clair, `SERVFAIL` sur le domaine mal signé, puis 0 paquet en port 53 sur le WAN quand le DoT est cassé.*
+*Figure 23 — `tcpdump` sur le LAN avec le nom `lequipe.fr` en clair, `SERVFAIL` sur le domaine mal signé, puis 0 paquet en port 53 sur le WAN quand le DoT est cassé.*
 
 **Point délicat — remettre le port 853 après le test 3.** Tant que le port reste à 854, plus rien ne se résout sur Internet, et le changement ne compte qu'après Save puis Apply. Pour vérifier ce qu'Unbound utilise réellement, sans se fier à l'interface :
 
@@ -595,9 +626,9 @@ grep -rh --exclude-dir=dev forward-addr /var/unbound   # doit afficher 9.9.9.9@8
 drill wordpress.com @127.0.0.1 | grep rcode            # doit afficher NOERROR
 ```
 
-![Figure 19 — Retour au port 853](tp2-dns-securise/captures/08-retour-853.png)
+![Figure 24 — Retour au port 853](tp2-dns-securise/captures/08-retour-853.png)
 
-*Figure 19 — Retour au port 853 : `forward-addr` affiche `@853` et la résolution renvoie `NOERROR`.*
+*Figure 24 — Retour au port 853 : `forward-addr` affiche `@853` et la résolution renvoie `NOERROR`.*
 
 ## TP 2 — Filtrage par blocklist
 
@@ -605,9 +636,9 @@ Les sites de jeux d'argent et les réseaux sociaux reçoivent l'adresse `0.0.0.0
 
 **Configuration** : Services > Unbound DNS > Blocklists > +. Catégories Gambling et Social Networks (listes Hagezi), Source Net(s) vide (tous les réseaux), description « Filtrage Nordis ».
 
-![Figure 20 — Blocklist Filtrage Nordis](tp2-dns-securise/captures/09-blocklist-categories.png)
+![Figure 25 — Blocklist Filtrage Nordis](tp2-dns-securise/captures/09-blocklist-categories.png)
 
-*Figure 20 — Blocklist « Filtrage Nordis » : catégories Gambling et Social Networks.*
+*Figure 25 — Blocklist « Filtrage Nordis » : catégories Gambling et Social Networks.*
 
 **Pas de liste malware ou phishing.** Le sujet prévoit aussi une liste de sécurité, mais OPNsense ne la propose pas parmi les types de DNSBL de cette version. Le blocage des domaines malveillants est assuré en amont par Quad9 : le service 9.9.9.9 refuse de résoudre les domaines malveillants connus. Un flux public peut être ajouté en seconde couche (partie Limites).
 
@@ -615,23 +646,23 @@ Les sites de jeux d'argent et les réseaux sociaux reçoivent l'adresse `0.0.0.0
 
 L'onglet Tester montre la décision d'Unbound, la liste et la catégorie qui l'ont déclenchée.
 
-![Figure 21 — Tester : betclic bloqué](tp2-dns-securise/captures/10-blocklist-tester.png)
+![Figure 26 — Tester : betclic bloqué](tp2-dns-securise/captures/10-blocklist-tester.png)
 
-*Figure 21 — Tester : `www.betclic.fr` bloqué (`"action": "Block"`, adresse `0.0.0.0`) par la liste Gambling.*
+*Figure 26 — Tester : `www.betclic.fr` bloqué (`"action": "Block"`, adresse `0.0.0.0`) par la liste Gambling.*
 
-![Figure 22 — Blocage vu depuis LNX01](tp2-dns-securise/captures/11-blocklist-lnx01.png)
+![Figure 27 — Blocage vu depuis LNX01](tp2-dns-securise/captures/11-blocklist-lnx01.png)
 
-*Figure 22 — Depuis LNX01 : betclic reçoit `0.0.0.0`, Wikipédia sa vraie adresse.*
+*Figure 27 — Depuis LNX01 : betclic reçoit `0.0.0.0`, Wikipédia sa vraie adresse.*
 
 **Point délicat — journal désactivé par défaut.** Reporting > Unbound DNS affiche « Local gathering of statistics is not enabled ». Il faut cocher Enabled dans l'onglet Settings, puis refaire les tests : les requêtes antérieures ne sont pas rattrapées.
 
-![Figure 23 — Journal désactivé](tp2-dns-securise/captures/12-reporting-desactive.png)
+![Figure 28 — Journal désactivé](tp2-dns-securise/captures/12-reporting-desactive.png)
 
-*Figure 23 — Reporting Unbound DNS avant activation du journal.*
+*Figure 28 — Reporting Unbound DNS avant activation du journal.*
 
-![Figure 24 — Journal : blocage de betclic](tp2-dns-securise/captures/13-reporting-block.png)
+![Figure 29 — Journal : blocage de betclic](tp2-dns-securise/captures/13-reporting-block.png)
 
-*Figure 24 — Journal après activation : le poste `lnx01`, le nom `www.betclic.fr`, l'action Block, la liste Gambling et la politique « Filtrage Nordis ».*
+*Figure 29 — Journal après activation : le poste `lnx01`, le nom `www.betclic.fr`, l'action Block, la liste Gambling et la politique « Filtrage Nordis ».*
 
 ## TP 2 — Scénario DoH : contourner, détecter, refermer
 
@@ -647,17 +678,17 @@ curl -s -H 'accept: application/dns-json' \
   'https://cloudflare-dns.com/dns-query?name=www.facebook.com&type=A'   # vraie adresse : contournement réussi
 ```
 
-![Figure 25 — Contournement par DoH](tp2-dns-securise/captures/14-doh-contournement.png)
+![Figure 30 — Contournement par DoH](tp2-dns-securise/captures/14-doh-contournement.png)
 
-*Figure 25 — Unbound bloque facebook (`0.0.0.0`), le DoH de Cloudflare renvoie la vraie adresse (`57.144.244.1`).*
+*Figure 30 — Unbound bloque facebook (`0.0.0.0`), le DoH de Cloudflare renvoie la vraie adresse (`57.144.244.1`).*
 
 ### 2. Détecter
 
 Le DoH est chiffré, mais avant d'envoyer sa requête, le client doit trouver l'adresse du serveur DoH. Cette résolution part en clair vers Unbound et apparaît dans le journal.
 
-![Figure 26 — Détection du DoH](tp2-dns-securise/captures/15-doh-detection.png)
+![Figure 31 — Détection du DoH](tp2-dns-securise/captures/15-doh-detection.png)
 
-*Figure 26 — Journal Unbound : `lnx01` a demandé `cloudflare-dns.com` (types A et AAAA) juste avant de contourner le filtrage.*
+*Figure 31 — Journal Unbound : `lnx01` a demandé `cloudflare-dns.com` (types A et AAAA) juste avant de contourner le filtrage.*
 
 | Nom observé dans le journal | Ce que ça révèle |
 | --- | --- |
@@ -669,30 +700,30 @@ Le DoH est chiffré, mais avant d'envoyer sa requête, le client doit trouver l'
 
 **Couche 1 : bloquer les noms DoH.** Une seconde blocklist en Wildcard Domains (le nom et tous ses sous-domaines) : `cloudflare-dns.com`, `dns.google`, `doh.opendns.com`, `dns.nextdns.io`. Ne pas y mettre `dns.quad9.net`, le résolveur de FW01.
 
-![Figure 27 — Noms DoH bloqués](tp2-dns-securise/captures/16-doh-noms-bloques.png)
+![Figure 32 — Noms DoH bloqués](tp2-dns-securise/captures/16-doh-noms-bloques.png)
 
-*Figure 27 — Blocklist des noms DoH en Wildcard Domains.*
+*Figure 32 — Blocklist des noms DoH en Wildcard Domains.*
 
 `cloudflare-dns.com` répond désormais `0.0.0.0`. Mais un client qui contacte directement l'adresse IP du résolveur n'a besoin d'aucune résolution :
 
-![Figure 28 — DoH par IP encore possible](tp2-dns-securise/captures/17-doh-par-ip.png)
+![Figure 33 — DoH par IP encore possible](tp2-dns-securise/captures/17-doh-par-ip.png)
 
-*Figure 28 — Le nom est bloqué, mais le DoH vers 1.1.1.1 fonctionne encore.*
+*Figure 33 — Le nom est bloqué, mais le DoH vers 1.1.1.1 fonctionne encore.*
 
 **Couche 2 : bloquer les IP DoH.** Alias `DoH_publics` (Firewall > Aliases, type Host(s)), puis la règle 4 : blocage de `DoH_publics` en TCP et UDP 443. L'UDP couvre HTTP/3 (QUIC).
 
-![Figure 29 — Alias DoH_publics](tp2-dns-securise/captures/18-alias-doh.png)
+![Figure 34 — Alias DoH_publics](tp2-dns-securise/captures/18-alias-doh.png)
 
-*Figure 29 — Alias `DoH_publics` : 1.1.1.1, 1.0.0.1, 8.8.8.8, 8.8.4.4.*
+*Figure 34 — Alias `DoH_publics` : 1.1.1.1, 1.0.0.1, 8.8.8.8, 8.8.4.4.*
 
 ```bash
 curl -s --max-time 5 -H 'accept: application/dns-json' \
   'https://1.1.1.1/dns-query?name=www.facebook.com&type=A' ; echo "code retour : $?"
 ```
 
-![Figure 30 — DoH par IP bloqué](tp2-dns-securise/captures/19-doh-ip-bloque.png)
+![Figure 35 — DoH par IP bloqué](tp2-dns-securise/captures/19-doh-ip-bloque.png)
 
-*Figure 30 — `code retour : 28` (délai dépassé) : le pare-feu jette la connexion vers 1.1.1.1.*
+*Figure 35 — `code retour : 28` (délai dépassé) : le pare-feu jette la connexion vers 1.1.1.1.*
 
 **Couche 3 : verrouiller le navigateur.** Le DoH est désactivé dans le navigateur, et l'utilisateur ne peut plus le réactiver. En entreprise, ce réglage se déploie par GPO ou par l'outil de gestion de parc, pas poste par poste.
 
@@ -702,9 +733,9 @@ curl -s --max-time 5 -H 'accept: application/dns-json' \
 | Windows (Edge, Chrome) | GPO, modèles d'administration | `DnsOverHttpsMode` = `off` |
 | Windows (Firefox) | GPO, modèles Firefox | DNS over HTTPS désactivé et verrouillé |
 
-![Figure 31 — Stratégie Firefox et règle DoT rétablie](tp2-dns-securise/captures/20-regle-dot-retablie.png)
+![Figure 36 — Stratégie Firefox et règle DoT rétablie](tp2-dns-securise/captures/20-regle-dot-retablie.png)
 
-*Figure 31 — Stratégie Firefox validée sur LNX01. Le premier test affiche `853 OUVERT` (règle DoT modifiée par erreur) ; après recréation de la règle 3, le dernier affiche `853 BLOQUÉ`.*
+*Figure 36 — Stratégie Firefox validée sur LNX01. Le premier test affiche `853 OUVERT` (règle DoT modifiée par erreur) ; après recréation de la règle 3, le dernier affiche `853 BLOQUÉ`.*
 
 ## TP 2 — Réponses aux questions
 
@@ -714,7 +745,7 @@ Unbound est un intermédiaire. Il reçoit la question du poste sur le LAN, puis 
 
 **Question 2 — Le pare-feu sait-il quelle page de betclic.fr l'utilisateur voulait voir ? Que voit-il exactement ?**
 
-Non. Le DNS ne transporte que le nom de domaine, pas l'adresse complète de la page. Le pare-feu voit l'adresse du poste, le nom `www.betclic.fr`, le type de requête (A, AAAA), l'heure et la décision (Block), comme sur la figure 24. Le chemin de la page se trouve dans la requête HTTP, chiffrée par TLS ; ici, elle n'est même jamais envoyée, puisque la résolution a renvoyé `0.0.0.0`.
+Non. Le DNS ne transporte que le nom de domaine, pas l'adresse complète de la page. Le pare-feu voit l'adresse du poste, le nom `www.betclic.fr`, le type de requête (A, AAAA), l'heure et la décision (Block), comme sur la figure 29. Le chemin de la page se trouve dans la requête HTTP, chiffrée par TLS ; ici, elle n'est même jamais envoyée, puisque la résolution a renvoyé `0.0.0.0`.
 
 **Question 3 — Pourquoi la règle « DNS uniquement vers This Firewall » n'a-t-elle pas empêché le contournement ?**
 
