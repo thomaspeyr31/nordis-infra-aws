@@ -191,6 +191,9 @@ Aucune ligne en `.53`, aucun nom de domaine lisible, et seule l'adresse WAN de F
 
 ![Blocklist : Gambling et Social Networks](captures/dns/09-blocklist-categories.png)
 
+> [!NOTE]
+> **Pas de liste malware / phishing.** Le sujet du TP prévoit aussi une liste de sécurité, mais OPNsense ne la propose pas parmi les types de DNSBL de cette version : seules les catégories Gambling et Social Networks correspondaient au besoin. Le blocage des domaines malveillants est assuré **en amont par Quad9** : le service `9.9.9.9` refuse de résoudre les domaines malveillants connus, à partir de flux de renseignement sur les menaces. Pour une couche locale en plus, un flux public peut être ajouté en *URLs of Blocklists* (voir § 9).
+
 L'onglet **Tester** montre la décision d'Unbound, la liste et la catégorie qui l'ont déclenchée :
 
 ![Tester : www.betclic.fr bloqué par la liste Gambling](captures/dns/10-blocklist-tester.png)
@@ -320,7 +323,7 @@ Avant d'ouvrir la moindre connexion chiffrée, le client doit connaître l'adres
 
 | Limite | Amélioration proposée |
 | --- | --- |
-| La liste **malware / phishing** n'est pas encore active dans la blocklist (catégorie absente sous ce nom dans cette version) | Ajouter un flux public en *URLs of Blocklists*, par exemple URLhaus d'abuse.ch. À noter : Quad9 (`9.9.9.9`) bloque déjà les domaines malveillants connus, ce qui forme une première couche |
+| Pas de liste **malware / phishing** locale : OPNsense ne la propose pas dans les types de DNSBL de cette version | Le blocage est déjà assuré par Quad9 (`9.9.9.9` filtre les domaines malveillants connus). Pour une seconde couche, visible dans le journal local : ajouter un flux public en *URLs of Blocklists*, par exemple URLhaus d'abuse.ch |
 | L'alias `DoH_publics` ne couvre que 4 adresses ; il existe des centaines de résolveurs DoH | Alias de type *URL Table* alimenté par une liste publique d'IP DoH maintenue, mis à jour chaque jour |
 | La détection du DoH (§ 6.2) demande de consulter le journal à la main | Envoyer les journaux d'Unbound vers le rsyslog central de LNX01 et alerter sur les noms de résolveurs DoH |
 | Le DoH vers un serveur privé (IP inconnue, nom non listé) reste possible | Inspection TLS (SNI) ou proxy web obligatoire ; hors du périmètre de ce TP |
