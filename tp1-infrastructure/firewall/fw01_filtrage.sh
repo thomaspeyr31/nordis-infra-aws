@@ -2,15 +2,12 @@
 # =============================================================================
 # Nom         : fw01_filtrage.sh
 # Auteur      : Thomas Peyrusaubes
-# Date        : 2026-11-09
-# Version     : 1.1
+# Date        : 2026-10-22
+# Version     : 1.0
 # Projet      : Nordis Distribution - Module A2627_5066
 # Description : Filtrage entre sous-réseaux sur FW01 (OPNsense), selon le DAT.
 #               Sur AWS, tous les sous-réseaux arrivent sur l'interface LAN de FW01 :
 #               les règles sont donc posées sur LAN et distinguées par réseau source.
-#                 - DNS (règles 1 à 4, avant tout le reste, voir docs/dns-securise.md) :
-#                   DNS uniquement vers Unbound ; DNS (53), DoT (853) et DoH par IP (443)
-#                   vers l'extérieur bloqués et journalisés
 #                 - Management (10.50.99.0/24) et Serveurs (10.50.10.0/24) : tout
 #                 - Postes (10.50.30/40/50.0/24) : FW01 DNS/NTP, DC (ports AD),
 #                   SRV02 (SMB 445, WSUS 8530), LNX02 (80), Internet hors RFC 1918 (80, 443)
@@ -66,7 +63,6 @@ $aliases = [
     ['PORTS_AD',       'port',    "53\n88\n123\n135\n389\n445\n464\n636\n3268\n3269\n9389\n49152:65535", 'Ports Active Directory'],
     ['PORTS_SRV02',    'port',    "445\n8530",                                 'SMB et WSUS sur SRV02'],
     ['PORTS_WEB',      'port',    "80\n443",                                   'HTTP et HTTPS'],
-    ['DoH_publics',    'host',    "1.1.1.1\n1.0.0.1\n8.8.8.8\n8.8.4.4",        'Résolveurs DoH publics'],
 ];
 $mdlAlias = new Alias();
 $existants = [];
@@ -84,11 +80,7 @@ Config::getInstance()->save();
 // ---------- 2. Règles ----------
 // séquence, description, source, destination, destination inversée, protocole, port, action, journal
 $regles = [
-    [1,  'Nordis : DNS vers Unbound',              '10.50.0.0/16',  '(self)',         0, 'TCP/UDP', '53',          'pass',  0],
-    [2,  'Nordis : DNS direct interdit',           '10.50.0.0/16',  '10.50.0.0/16',   1, 'TCP/UDP', '53',          'block', 1],
-    [3,  'Nordis : DoT direct interdit',           '10.50.0.0/16',  '10.50.0.0/16',   1, 'TCP/UDP', '853',         'block', 1],
-    [4,  'Nordis : DoH par IP interdit',           '10.50.0.0/16',  'DoH_publics',    0, 'TCP/UDP', '443',         'block', 1],
-    [10, 'Nordis : Management vers tout',         '10.50.99.0/24', 'any',            0, 'any',     '',            'pass',  0],
+    [10, 'Nordis : Management vers tout',          '10.50.99.0/24', 'any',            0, 'any',     '',            'pass',  0],
     [11, 'Nordis : Serveurs vers tout',            '10.50.10.0/24', 'any',            0, 'any',     '',            'pass',  0],
     [20, 'Nordis : Postes vers FW01 DNS',          'NORDIS_POSTES', '(self)',         0, 'TCP/UDP', '53',          'pass',  0],
     [21, 'Nordis : Postes vers FW01 NTP',          'NORDIS_POSTES', '(self)',         0, 'UDP',     '123',         'pass',  0],

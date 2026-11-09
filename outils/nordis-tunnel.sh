@@ -4,7 +4,7 @@
 # Auteur      : Thomas Peyrusaubes
 # Date        : 2026-11-09
 # Version     : 1.0
-# Projet      : Nordis Distribution - Module A2627_5066
+# Projet      : Nordis Distribution - outil commun aux TP 1 et 2
 # Description : Accès d'administration à Nordis depuis le poste de l'administrateur.
 #               Un seul processus remplace les deux terminaux de tunnel :
 #                 - EC2 Instance Connect Endpoint → SSH de FW01 (ProxyCommand)
@@ -13,7 +13,7 @@
 #               Reconnexion automatique toutes les 5 s en cas de coupure (coupure
 #               réseau, plantage de la CLI AWS, tunnel arrivé à sa durée maximale).
 # Prérequis   : AWS CLI configurée, clé ~/.ssh/nordis.pem, instances démarrées
-# Usage       : ./nordis-tunnel.sh        (Ctrl+C pour arrêter)
+# Usage       : outils/nordis-tunnel.sh        (Ctrl+C pour arrêter)
 #               puis : https://localhost:8443 · ssh -i ~/.ssh/nordis.pem -p 2201 admin@127.0.0.1
 # Retour      : 1 = endpoint introuvable ; sinon tourne jusqu'à Ctrl+C
 # =============================================================================

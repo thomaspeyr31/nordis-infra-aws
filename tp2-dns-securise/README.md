@@ -1,6 +1,10 @@
-# DNS sécurisé : chiffrement, filtrage et détection du contournement
+[Accueil](../README.md) · [TP 1 – Infrastructure](../tp1-infrastructure/README.md) · **TP 2 – DNS sécurisé** · [Documentation complète](../DOCUMENTATION.md)
 
-Compte rendu du TP DNS sur l'infrastructure Nordis (novembre 2026).
+# TP 2 – DNS maîtrisé : chiffrement, filtrage et détection du contournement
+
+Compte rendu du TP DNS, suite du [TP 1](../tp1-infrastructure/README.md) (novembre 2026).
+
+**Le principe.** On veut **cacher** les requêtes DNS côté Internet, pour que le fournisseur d'accès ou un attaquant sur le chemin ne puisse ni lire ni falsifier ce que Nordis consulte. Mais on les garde **en clair et centralisées** côté interne, car c'est cette visibilité qui permet de filtrer les sites interdits et de repérer un poste qui cherche à échapper à la surveillance.
 
 **Objectif** : faire de FW01 (Unbound) le **seul résolveur DNS** de l'entreprise, et un résolveur :
 
@@ -9,6 +13,19 @@ Compte rendu du TP DNS sur l'infrastructure Nordis (novembre 2026).
 - **filtrant** (jeux d'argent, réseaux sociaux) ;
 - **journalisé** (qui a demandé quoi, quand) ;
 - **impossible à contourner** (DNS direct, DoT direct et DoH bloqués ou détectés).
+
+## Contenu du dossier
+
+| Élément | Rôle |
+| --- | --- |
+| `README.md` | Ce compte rendu : configuration, preuves, scénario DoH, réponses aux questions |
+| [`firewall/fw01_dns.sh`](firewall/fw01_dns.sh) | Règles anti-contournement 1 à 4 et alias `DoH_publics` (idempotent, retour arrière automatique) |
+| [`navigateur/policies.json`](navigateur/policies.json) | Stratégie Firefox : DoH désactivé et verrouillé |
+| [`captures/`](captures) | Les 20 captures du compte rendu |
+
+**Prérequis** : TP 1 déployé (FW01, DC01, DC02, LNX01), accès d'administration ouvert avec [`outils/nordis-tunnel.sh`](../outils/nordis-tunnel.sh).
+
+**Rejouer le TP** : configurer Unbound dans l'interface web (partie 2), lancer `firewall/fw01_dns.sh` (partie 3), puis dérouler les tests des parties 3 à 6.
 
 ## Sommaire
 
@@ -20,7 +37,8 @@ Compte rendu du TP DNS sur l'infrastructure Nordis (novembre 2026).
 6. [Scénario DoH : contourner, détecter, refermer](#6-scénario-doh--contourner-détecter-refermer)
 7. [Réponses aux questions du TP](#7-réponses-aux-questions-du-tp)
 8. [Points délicats rencontrés](#8-points-délicats-rencontrés)
-9. [Limites et améliorations](#9-limites-et-améliorations)
+9. [Exploitation](#9-exploitation)
+10. [Limites et améliorations](#10-limites-et-améliorations)
 
 ---
 
@@ -89,16 +107,16 @@ Prérequis : **FW01 doit être à l'heure** (Services > Network Time). DNSSEC v�
 > [!WARNING]
 > **Quad9 en clair dans Query Forwarding.** La configuration d'origine envoyait aussi les requêtes à Quad9 sur le **port 53, en clair**. Ces deux lignes ont été supprimées et remplacées par les entrées DNS over TLS.
 >
-> ![Query Forwarding avant correction : Quad9 en port 53](captures/dns/01-unbound-forwarding-avant.png)
+> ![Query Forwarding avant correction : Quad9 en port 53](captures/01-unbound-forwarding-avant.png)
 
 Configuration DNS over TLS finale (le premier serveur est le principal, le second le secours) :
 
-![DNS over TLS : Quad9 en port 853](captures/dns/02-unbound-dot.png)
+![DNS over TLS : Quad9 en port 853](captures/02-unbound-dot.png)
 
 > [!IMPORTANT]
 > **DNSSEC et la zone `ad.nordis.test`.** Le domaine `.test` n'est pas signé. Avec DNSSEC activé, Unbound rejetterait les réponses des contrôleurs de domaine (SERVFAIL) : plus aucune ouverture de session ne fonctionnerait. `ad.nordis.test` est donc déclaré en **Insecure Domains** (pas de validation) et en **Private Domains** (réponses en adresses privées acceptées).
 >
-> ![Advanced : ad.nordis.test en Insecure Domains](captures/dns/03-unbound-advanced-domaines.png)
+> ![Advanced : ad.nordis.test en Insecure Domains](captures/03-unbound-advanced-domaines.png)
 
 **Vérification depuis LNX01** (ainsi que les tests de la partie 3) :
 
@@ -108,7 +126,7 @@ dig @10.50.0.20 +dnssec isc.org | grep flags     # flag ad → réponse validée
 dig @10.50.0.20 +short dc01.ad.nordis.test       # 10.50.10.10 → zone AD transmise aux DC
 ```
 
-![Tests de résolution, DoT, DNSSEC, zone AD et blocage du contournement](captures/dns/04-tests-resolution.png)
+![Tests de résolution, DoT, DNSSEC, zone AD et blocage du contournement](captures/04-tests-resolution.png)
 
 ---
 
@@ -123,15 +141,23 @@ Le résolveur ne sert à rien si un poste peut interroger `8.8.8.8` directement.
 | 3 | Block | `10.50.0.0/16` | **hors** `10.50.0.0/16` | 853 TCP/UDP | ✓ | DoT direct interdit |
 | 4 | Block | `10.50.0.0/16` | alias `DoH_publics` | 443 TCP/UDP | ✓ | DoH par IP interdit (§ 6.3) |
 
-« Hors `10.50.0.0/16` » correspond à la case **Invert Destination** : la règle vise toute destination extérieure, sans gêner le DNS interne (DC, FW01). Ces règles sont aussi dans [`firewall/fw01_filtrage.sh`](../firewall/fw01_filtrage.sh).
+« Hors `10.50.0.0/16` » correspond à la case **Invert Destination** : la règle vise toute destination extérieure, sans gêner le DNS interne (DC, FW01).
+
+Pendant le TP, les règles ont été créées dans l'interface web, comme ci-dessous. Elles se reproduisent à l'identique avec le script du dossier, qui ignore ce qui existe déjà et revient seul en arrière au bout de 3 minutes sans confirmation :
+
+```bash
+ssh -i ~/.ssh/nordis.pem -p 2222 root@127.0.0.1 'sh -s' < tp2-dns-securise/firewall/fw01_dns.sh
+# tester (dig @8.8.8.8 doit échouer depuis LNX01), puis confirmer :
+ssh -i ~/.ssh/nordis.pem -p 2222 root@127.0.0.1 touch /tmp/dns_ok
+```
 
 Création de la règle 1 (Firewall > Rules > LAN > **+**), section Filter :
 
-![Règle 1 : TCP/UDP, source 10.50.0.0/16, destination This Firewall, port 53](captures/dns/05-regle-dialogue.png)
+![Règle 1 : TCP/UDP, source 10.50.0.0/16, destination This Firewall, port 53](captures/05-regle-dialogue.png)
 
 Résultat : les règles DNS passent avant « Management vers tout » et « Serveurs vers tout ». La croix rouge signale un blocage, la cloche une règle journalisée.
 
-![Liste des règles LAN avec les règles DNS en tête](captures/dns/06-regles-dns.png)
+![Liste des règles LAN avec les règles DNS en tête](captures/06-regles-dns.png)
 
 > [!WARNING]
 > **Copier une règle, pas la modifier.** Pour créer une règle proche d'une autre, il faut cliquer sur l'icône **copier** (deux carrés), **pas sur le crayon** juste à côté. Pendant le TP, la règle DoT a été modifiée par erreur au lieu d'être copiée : le port 853 s'est retrouvé ouvert sans aucune alerte. Seul le test de non-régression l'a révélé (voir § 6.3). **Après chaque modification du pare-feu, on relance tous les tests**, pas seulement celui de la règle ajoutée.
@@ -165,7 +191,7 @@ Aucune ligne en `.53`, aucun nom de domaine lisible, et seule l'adresse WAN de F
 
 **LAN (`ena1`), DNSSEC et absence de repli en clair**
 
-![tcpdump LAN avec le nom lequipe.fr en clair, SERVFAIL DNSSEC, 0 paquet en 53 sur le WAN](captures/dns/07-tcpdump-lan-dnssec-repli.png)
+![tcpdump LAN avec le nom lequipe.fr en clair, SERVFAIL DNSSEC, 0 paquet en 53 sur le WAN](captures/07-tcpdump-lan-dnssec-repli.png)
 
 | # | Test | Résultat | Lecture |
 | --- | --- | --- | --- |
@@ -181,7 +207,7 @@ Aucune ligne en `.53`, aucun nom de domaine lisible, et seule l'adresse WAN de F
 > drill wordpress.com @127.0.0.1 | grep rcode            # doit afficher NOERROR
 > ```
 >
-> ![Retour au port 853 et résolution rétablie](captures/dns/08-retour-853.png)
+> ![Retour au port 853 et résolution rétablie](captures/08-retour-853.png)
 
 ---
 
@@ -189,24 +215,27 @@ Aucune ligne en `.53`, aucun nom de domaine lisible, et seule l'adresse WAN de F
 
 **Services > Unbound DNS > Blocklists > +** : catégories Gambling et Social Networks (listes Hagezi), Source Net(s) vide (tous les réseaux), description « Filtrage Nordis ».
 
-![Blocklist : Gambling et Social Networks](captures/dns/09-blocklist-categories.png)
+![Blocklist : Gambling et Social Networks](captures/09-blocklist-categories.png)
+
+> [!NOTE]
+> **Pas de liste malware / phishing.** Le sujet du TP prévoit aussi une liste de sécurité, mais OPNsense ne la propose pas parmi les types de DNSBL de cette version : seules les catégories Gambling et Social Networks correspondaient au besoin. Le blocage des domaines malveillants est assuré **en amont par Quad9** : le service `9.9.9.9` refuse de résoudre les domaines malveillants connus, à partir de flux de renseignement sur les menaces. Pour une couche locale en plus, un flux public peut être ajouté en *URLs of Blocklists* (voir § 10).
 
 L'onglet **Tester** montre la décision d'Unbound, la liste et la catégorie qui l'ont déclenchée :
 
-![Tester : www.betclic.fr bloqué par la liste Gambling](captures/dns/10-blocklist-tester.png)
+![Tester : www.betclic.fr bloqué par la liste Gambling](captures/10-blocklist-tester.png)
 
 Depuis un vrai client (LNX01) : le site bloqué reçoit l'adresse `0.0.0.0`, Wikipédia reçoit sa vraie adresse.
 
-![dig betclic → 0.0.0.0, wikipedia → vraie adresse](captures/dns/11-blocklist-lnx01.png)
+![dig betclic → 0.0.0.0, wikipedia → vraie adresse](captures/11-blocklist-lnx01.png)
 
 > [!WARNING]
 > **Le journal des requêtes est désactivé par défaut.** Reporting > Unbound DNS affiche « Local gathering of statistics is not enabled ». Il faut cocher **Enabled** dans l'onglet Settings. Les requêtes antérieures ne sont pas rattrapées : il faut refaire les tests après l'activation.
 >
-> ![Reporting Unbound DNS désactivé](captures/dns/12-reporting-desactive.png)
+> ![Reporting Unbound DNS désactivé](captures/12-reporting-desactive.png)
 
 Journal après activation : le poste (`lnx01`), le nom, l'action **Block**, la liste et la politique responsables.
 
-![Reporting : lnx01, www.betclic.fr, Block, Gambling, Filtrage Nordis](captures/dns/13-reporting-block.png)
+![Reporting : lnx01, www.betclic.fr, Block, Gambling, Filtrage Nordis](captures/13-reporting-block.png)
 
 ---
 
@@ -225,13 +254,13 @@ curl -s -H 'accept: application/dns-json' \
   'https://cloudflare-dns.com/dns-query?name=www.facebook.com&type=A'   # vraie adresse : contournement réussi
 ```
 
-![Unbound bloque facebook, le DoH Cloudflare renvoie la vraie adresse](captures/dns/14-doh-contournement.png)
+![Unbound bloque facebook, le DoH Cloudflare renvoie la vraie adresse](captures/14-doh-contournement.png)
 
 ### 6.2 Détecter
 
 Le DoH est chiffré, mais avant d'envoyer sa requête, le client doit trouver l'adresse du serveur DoH. **Cette résolution part en clair vers Unbound** et apparaît dans le journal.
 
-![Reporting : lnx01 a demandé cloudflare-dns.com](captures/dns/15-doh-detection.png)
+![Reporting : lnx01 a demandé cloudflare-dns.com](captures/15-doh-detection.png)
 
 | Nom observé dans le journal | Ce que ça révèle |
 | --- | --- |
@@ -246,22 +275,22 @@ Le DoH est chiffré, mais avant d'envoyer sa requête, le client doit trouver l'
 > [!CAUTION]
 > Ne **pas** ajouter `dns.quad9.net` : c'est le résolveur de FW01.
 
-![Blocklist « noms DoH » en Wildcard Domains](captures/dns/16-doh-noms-bloques.png)
+![Blocklist « noms DoH » en Wildcard Domains](captures/16-doh-noms-bloques.png)
 
 `cloudflare-dns.com` répond désormais `0.0.0.0` et le DoH par nom échoue. **Mais** un client qui contacte directement l'adresse IP du résolveur n'a besoin d'aucune résolution :
 
-![Le nom est bloqué, mais le DoH vers 1.1.1.1 fonctionne encore](captures/dns/17-doh-par-ip.png)
+![Le nom est bloqué, mais le DoH vers 1.1.1.1 fonctionne encore](captures/17-doh-par-ip.png)
 
 **Couche 2 : bloquer les IP DoH.** Alias `DoH_publics` (Firewall > Aliases, type Host(s)), puis la règle 4 du § 3 : blocage de `DoH_publics` en TCP **et UDP** 443 (l'UDP couvre HTTP/3 / QUIC).
 
-![Alias DoH_publics : 1.1.1.1, 1.0.0.1, 8.8.8.8, 8.8.4.4](captures/dns/18-alias-doh.png)
+![Alias DoH_publics : 1.1.1.1, 1.0.0.1, 8.8.8.8, 8.8.4.4](captures/18-alias-doh.png)
 
 ```bash
 curl -s --max-time 5 -H 'accept: application/dns-json' \
   'https://1.1.1.1/dns-query?name=www.facebook.com&type=A' ; echo "code retour : $?"
 ```
 
-![code retour 28 : connexion vers 1.1.1.1 bloquée](captures/dns/19-doh-ip-bloque.png)
+![code retour 28 : connexion vers 1.1.1.1 bloquée](captures/19-doh-ip-bloque.png)
 
 `28` = délai dépassé : le pare-feu jette la connexion.
 
@@ -269,13 +298,13 @@ curl -s --max-time 5 -H 'accept: application/dns-json' \
 
 | Système | Méthode | Réglage |
 | --- | --- | --- |
-| Linux (Firefox) | `/etc/firefox/policies/policies.json` | `{ "policies": { "DNSOverHTTPS": { "Enabled": false, "Locked": true } } }` |
+| Linux (Firefox) | `/etc/firefox/policies/policies.json` ([fichier](navigateur/policies.json)) | `{ "policies": { "DNSOverHTTPS": { "Enabled": false, "Locked": true } } }` |
 | Windows (Edge, Chrome) | GPO, modèles d'administration | `DnsOverHttpsMode` = `off` |
 | Windows (Firefox) | GPO, modèles Firefox | DNS over HTTPS : désactivé et verrouillé |
 
 En entreprise, ce réglage se déploie par GPO ou par l'outil de gestion de parc, pas poste par poste.
 
-![Stratégie Firefox validée, et règle DoT rétablie : 853 OUVERT puis BLOQUÉ](captures/dns/20-regle-dot-retablie.png)
+![Stratégie Firefox validée, et règle DoT rétablie : 853 OUVERT puis BLOQUÉ](captures/20-regle-dot-retablie.png)
 
 Sur cette capture, le premier test affiche **`853 OUVERT`** : c'est l'erreur décrite au § 3 (règle DoT modifiée au lieu d'être copiée). Après recréation de la règle 3, le dernier test affiche `853 BLOQUÉ`.
 
@@ -310,18 +339,40 @@ Avant d'ouvrir la moindre connexion chiffrée, le client doit connaître l'adres
 | Commandes shell sur FW01 | `grep: 2: No such file or directory` | Le shell root d'OPNsense est `csh` : `2>/dev/null` n'existe pas | Ne pas rediriger, ou lancer `sh -c '…'` |
 | `grep -r` bloqué sur FW01 | La commande ne rend plus la main | `/var/unbound` contient un `dev/` monté (chroot) | `grep -r --exclude-dir=dev` |
 | Interfaces dans `tcpdump` | `em0` introuvable | Cartes AWS ENA | WAN = `ena0`, LAN = `ena1` (menu de la console FW01) |
-| Tunnel d'administration coupé | `TypeError: 'NoneType' object is not iterable` dans `aws ec2-instance-connect open-tunnel` | La CLI AWS plante quand la connexion WebSocket du tunnel est coupée (micro-coupure réseau), sans se relancer | Script d'accès avec reconnexion automatique (`scripts/admin/nordis-tunnel.sh`, voir [exploitation](exploitation.md)) |
+| Tunnel d'administration coupé | `TypeError: 'NoneType' object is not iterable` dans `aws ec2-instance-connect open-tunnel` | La CLI AWS plante quand la connexion WebSocket du tunnel est coupée (micro-coupure réseau), sans se relancer | Script d'accès avec reconnexion automatique ([`outils/nordis-tunnel.sh`](../outils/nordis-tunnel.sh), voir l'[exploitation du TP 1](../tp1-infrastructure/docs/exploitation.md)) |
 | Tunnel refusé | `AccessDeniedException … not authorized to perform ec2-instance-connect:OpenTunnel` | Constaté : refus sans `--max-tunnel-duration`, accepté avec ; la politique IAM impose une durée de tunnel limitée | Toujours passer `--max-tunnel-duration 3600` |
 | Mac sans accès à AWS | `Could not resolve host`, alors que `nslookup` fonctionne | Résolveur système du Mac bloqué (cache, Relais privé iCloud) | `sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder`, couper/rallumer le Wi-Fi |
 
 ---
 
-## 9. Limites et améliorations
+## 9. Exploitation
+
+| Fréquence | Tâche |
+| --- | --- |
+| Quotidienne | Reporting > Unbound DNS > Details : rechercher `cloudflare-dns`, `dns.google`, `nextdns`, `use-application-dns` (tentatives de DoH) |
+| Quotidienne | Firewall > Log Files : blocages des règles 2 à 4 (un poste qui insiste vers `8.8.8.8` ou `1.1.1.1`) |
+| Hebdomadaire | Reporting > Unbound DNS > Overview : domaines les plus bloqués, postes les plus actifs |
+| Après toute modification du pare-feu | Rejouer les tests des parties 3 et 6.3 (pas seulement celui de la règle modifiée) |
+
+| Panne | Symptôme | Diagnostic | Action |
+| --- | --- | --- | --- |
+| Plus de résolution Internet | `SERVFAIL` sur tous les noms externes | `grep -rh --exclude-dir=dev forward-addr /var/unbound` doit afficher `@853` ; heure de FW01 ; Quad9 joignable en 853 | Corriger le port dans DNS over TLS (Save puis Apply) ; resynchroniser l'heure ; `configctl unbound restart` |
+| Ouvertures de session lentes, `SERVFAIL` sur `*.ad.nordis.test` | Zone AD rejetée | `drill dc01.ad.nordis.test @127.0.0.1` | Vérifier `ad.nordis.test` en Insecure Domains et Private Domains, et le forward vers `10.50.10.10` / `10.50.10.12` |
+| Site légitime bloqué | Le poste reçoit `0.0.0.0` | Blocklists > Tester : liste et catégorie responsables | Ajouter le nom en *Allowlist Domains* de la blocklist concernée |
+| Journal des requêtes vide | « Local gathering of statistics is not enabled » | Reporting > Unbound DNS > Settings | Cocher Enabled ; les requêtes antérieures ne sont pas récupérées |
+
+## 10. Limites et améliorations
 
 | Limite | Amélioration proposée |
 | --- | --- |
-| La liste **malware / phishing** n'est pas encore active dans la blocklist (catégorie absente sous ce nom dans cette version) | Ajouter un flux public en *URLs of Blocklists*, par exemple URLhaus d'abuse.ch. À noter : Quad9 (`9.9.9.9`) bloque déjà les domaines malveillants connus, ce qui forme une première couche |
+| Pas de liste **malware / phishing** locale : OPNsense ne la propose pas dans les types de DNSBL de cette version | Le blocage est déjà assuré par Quad9 (`9.9.9.9` filtre les domaines malveillants connus). Pour une seconde couche, visible dans le journal local : ajouter un flux public en *URLs of Blocklists*, par exemple URLhaus d'abuse.ch |
 | L'alias `DoH_publics` ne couvre que 4 adresses ; il existe des centaines de résolveurs DoH | Alias de type *URL Table* alimenté par une liste publique d'IP DoH maintenue, mis à jour chaque jour |
 | La détection du DoH (§ 6.2) demande de consulter le journal à la main | Envoyer les journaux d'Unbound vers le rsyslog central de LNX01 et alerter sur les noms de résolveurs DoH |
 | Le DoH vers un serveur privé (IP inconnue, nom non listé) reste possible | Inspection TLS (SNI) ou proxy web obligatoire ; hors du périmètre de ce TP |
-| Configuration Unbound faite dans l'interface web | Elle est historisée par OPNsense (`/conf/backup`) ; les règles de pare-feu sont versionnées dans `fw01_filtrage.sh` |
+| Configuration Unbound faite dans l'interface web | Elle est historisée par OPNsense (`/conf/backup`) ; les règles de pare-feu sont versionnées dans `firewall/fw01_dns.sh` |
+
+---
+
+**Auteur** : Thomas Peyrusaubes · Bachelor 3 Infrastructure & Cybersécurité · novembre 2026
+
+[Accueil](../README.md) · [← TP 1 – Infrastructure](../tp1-infrastructure/README.md) · **TP 2 – DNS sécurisé**
