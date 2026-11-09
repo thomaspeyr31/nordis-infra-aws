@@ -28,7 +28,8 @@ Infrastructure complète d'une PME de 80 salariés, déployée sur AWS en **Infr
 
 - **7 instances EC2** (Windows Server 2025, Debian 13, OPNsense) dans un VPC `10.50.0.0/16`, créées par **Terraform**.
 - **Tout le trafic passe par le pare-feu** : chaque sous-réseau privé route vers FW01, qui assure NAT, DNS, NTP et filtrage.
-- **Aucun port d'administration exposé sur Internet** : accès par EC2 Instance Connect Endpoint + tunnel SSH.
+- **Aucun port d'administration exposé sur Internet** : accès par EC2 Instance Connect Endpoint + tunnel SSH, avec reconnexion automatique.
+- **DNS sécurisé** : résolveur unique chiffré vers Internet (DNS over TLS), validé par DNSSEC, filtrant et journalisé ; contournement par DNS direct, DoT ou DoH bloqué et détecté ([compte rendu](docs/dns-securise.md)).
 - **18 scripts** PowerShell et Bash documentés, relançables, avec journal et code de retour.
 - **Chaque compétence prouvée sur les deux OS** : services, droits, journaux, mises à jour, stockage redondé.
 
@@ -52,7 +53,7 @@ Infrastructure complète d'une PME de 80 salariés, déployée sur AWS en **Infr
 | Management | 10.50.99.0/24 | VLAN 99 |
 | FW01 WAN / LAN | 10.50.0.0/28 · 10.50.0.16/28 | – |
 
-**Flux** : Internet ↔ FW01 (seule IP publique) ↔ sous-réseaux privés. DNS : tous les hôtes → FW01 → DC pour `ad.nordis.test`, Quad9 pour le reste. Heure : Internet → FW01 → DC01/DC02 → membres.
+**Flux** : Internet ↔ FW01 (seule IP publique) ↔ sous-réseaux privés. DNS : tous les hôtes → FW01 → DC pour `ad.nordis.test`, Quad9 en DNS over TLS pour le reste. Heure : Internet → FW01 → DC01/DC02 → membres.
 
 ## Services déployés
 
@@ -76,12 +77,14 @@ Infrastructure complète d'une PME de 80 salariés, déployée sur AWS en **Infr
 ├── firewall/             fw01_bootstrap.sh (FreeBSD → OPNsense), fw01_filtrage.sh (règles du DAT)
 ├── scripts/
 │   ├── windows/          01_DC01 … 11_Rapport_WSUS (PowerShell) + utilisateurs_nordis.csv
-│   └── linux/            01_lnx01.sh, 02_lnx02.sh (Bash)
+│   ├── linux/            01_lnx01.sh, 02_lnx02.sh (Bash)
+│   └── admin/            nordis-tunnel.sh (accès d'administration, reconnexion automatique)
 └── docs/
     ├── architecture-aws.(png|drawio)
     ├── architecture.md   Document d'architecture technique
     ├── exploitation.md   Démarrage, sauvegarde, procédures de reprise
-    ├── captures/         Preuves de recette
+    ├── dns-securise.md   DNS chiffré, DNSSEC, filtrage, scénario DoH (compte rendu)
+    ├── captures/         Preuves de recette (dns/ : captures du compte rendu DNS)
     └── rapports/         Rapport des GPO (HTML), rapport d'état WSUS (PDF)
 ```
 
@@ -99,7 +102,7 @@ Puis, dans l'ordre :
 
 | # | Machine | Script | Résultat |
 | --- | --- | --- | --- |
-| 1 | FW01 | `firewall/fw01_bootstrap.sh <IP admin>` + réglages web | OPNsense, NAT, DNS Unbound, NTP |
+| 1 | FW01 | `firewall/fw01_bootstrap.sh <IP admin>` + réglages web ([DNS](docs/dns-securise.md#2-configuration-dunbound)) | OPNsense, NAT, DNS Unbound (DoT, DNSSEC, blocklists), NTP |
 | 2 | DC01 | `01_DC01.ps1` (×3) | Forêt, DNS, OU, groupes, audit |
 | 3 | DC02 | `02_DC02.ps1` (×3) | Second contrôleur, réplication |
 | 4 | SRV02 | `03_SRV02.ps1` (×3) | Miroir, partages, quotas |
@@ -109,7 +112,7 @@ Puis, dans l'ordre :
 | 8 | SRV02 | `09_WSUS.ps1`, `08_WEF.ps1 -Mode Collecteur`, `07_Sauvegarde.ps1 -Mode Installer` | WSUS, collecteur, sauvegarde |
 | 9 | CLI01 | `08_WEF.ps1 -Mode GPO` | Sources WEF |
 | 10 | LNX01 / LNX02 | `01_lnx01.sh`, `02_lnx02.sh` | Linux |
-| 11 | FW01 | `firewall/fw01_filtrage.sh` | Filtrage entre sous-réseaux (retour arrière automatique en 3 min sans confirmation) |
+| 11 | FW01 | `firewall/fw01_filtrage.sh` | Filtrage entre sous-réseaux et anti-contournement DNS (retour arrière automatique en 3 min sans confirmation) |
 
 Les scripts Windows en 3 étapes détectent seuls l'étape à faire : on les relance après chaque redémarrage. Lancement : `Set-ExecutionPolicy -Scope Process Bypass -Force ; C:\Scripts\<script>.ps1`.
 
@@ -118,7 +121,8 @@ Les scripts Windows en 3 étapes détectent seuls l'étape à faire : on les rel
 ## Sécurité
 
 - **Défense en profondeur** : tables de routes (tout passe par FW01) → groupes de sécurité AWS → règles OPNsense par sous-réseau (DMZ isolée, postes limités aux ports nécessaires, reste bloqué et journalisé).
-- **Administration** sans port exposé : EC2 Instance Connect Endpoint, puis tunnels SSH vers RDP/SSH internes.
+- **Administration** sans port exposé : EC2 Instance Connect Endpoint, puis tunnels SSH vers RDP/SSH internes (`scripts/admin/nordis-tunnel.sh`).
+- **DNS** : un seul résolveur (Unbound sur FW01), DNS over TLS vers Quad9, DNSSEC, blocklists (jeux d'argent, réseaux sociaux, résolveurs DoH), journal par poste ; DNS direct, DoT direct et DoH par IP bloqués et journalisés.
 - **Moindre privilège** : droits portés par les groupes, compte d'administration distinct (`adm-t.peyrusaubes`), sudo par groupe AD.
 - **Postes du Commercial** : clés USB interdites, aucun exécutable lancé depuis le profil ou une clé, aucun `.msi`.
 - **Données** : volumes EBS chiffrés, IMDSv2 obligatoire, aucun mot de passe dans le code (saisis à l'exécution ; le CSV contient un mot de passe initial factice, changé à la première connexion).
@@ -136,11 +140,17 @@ Les scripts Windows en 3 étapes détectent seuls l'étape à faire : on les rel
 | rsyslog + nginx | Intranet 200 OK, visite journalisée sur LNX01 |
 | DMZ | LNX02 bloqué vers DC01, autorisé vers le cache APT |
 | DNS | FW01 résout Internet (Quad9) et le domaine (DC) |
+| DNS chiffré | `proto.on.quad9.net` → `dot` ; WAN : uniquement du 853 vers Quad9 ; DoT cassé → aucun repli en clair |
+| DNSSEC | Flag `ad` sur `isc.org` ; `dnssec-failed.org` → SERVFAIL |
+| Contournement DNS | `dig @8.8.8.8` → timed out ; DoT direct et DoH vers `1.1.1.1` bloqués |
+| Blocklist | `www.betclic.fr` → `0.0.0.0`, journalisé (poste, nom, liste) ; Wikipédia résolu |
+| DoH | Contournement démontré, détecté dans le journal (`cloudflare-dns.com`), puis refermé |
 
 | | |
 | --- | --- |
 | ![Réplication AD](docs/captures/ad-replication.png) | ![Session Commercial](docs/captures/session-commercial-gpo.png) |
 | ![Sauvegarde et restauration](docs/captures/sauvegarde-restauration.png) | ![Rapport WSUS](docs/captures/wsus-rapport.png) |
+| ![Blocklist DNS journalisée](docs/captures/dns/13-reporting-block.png) | ![Tentative de DoH détectée](docs/captures/dns/15-doh-detection.png) |
 
 Toutes les captures : [`docs/captures`](docs/captures).
 
@@ -160,8 +170,9 @@ Limite connue : FW01 est un point unique de défaillance (une zone). En producti
 
 - [Document d'architecture technique](docs/architecture.md)
 - [Dossier d'exploitation](docs/exploitation.md)
+- [DNS sécurisé : chiffrement, filtrage, détection du contournement](docs/dns-securise.md)
 - [Rapport des GPO](docs/rapports/rapport-gpo.html) · [Rapport d'état WSUS](docs/rapports/rapport-wsus.pdf)
 
 ---
 
-**Auteur** : Thomas Peyrusaubes · Bachelor 3 Infrastructure & Cybersécurité · octobre 2026
+**Auteur** : Thomas Peyrusaubes · Bachelor 3 Infrastructure & Cybersécurité · octobre – novembre 2026

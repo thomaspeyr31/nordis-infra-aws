@@ -38,6 +38,9 @@ Trois couches se superposent.
 
 | Ordre | Source | Destination | Ports |
 | --- | --- | --- | --- |
+| 1 | Tous les sous-réseaux 10.50.0.0/16 | FW01 (Unbound) | DNS 53 |
+| 2–3 | Tous les sous-réseaux | hors 10.50.0.0/16 | DNS 53, DoT 853 : **bloqués et journalisés** |
+| 4 | Tous les sous-réseaux | résolveurs DoH publics (alias `DoH_publics`) | 443 : **bloqué et journalisé** |
 | 10 | Management 10.50.99.0/24 | tout | tous |
 | 11 | Serveurs 10.50.10.0/24 | tout | tous |
 | 20–21 | Postes (30, 40, 50) | FW01 | DNS 53, NTP 123 |
@@ -56,7 +59,7 @@ Sortie Internet : NAT de FW01 (source `10.50.0.0/16` → adresse WAN).
 
 ## DNS, DHCP, temps
 
-- **DNS** : tous les hôtes interrogent FW01 (Unbound), donné par le jeu d'options DHCP du VPC. `ad.nordis.test` et `50.10.in-addr.arpa` → DC01/DC02 ; le reste → Quad9 (9.9.9.9, 149.112.112.112). Zone AD intégrée à l'annuaire, répliquée sur DC02.
+- **DNS** : tous les hôtes interrogent FW01 (Unbound), donné par le jeu d'options DHCP du VPC. `ad.nordis.test` et `50.10.in-addr.arpa` → DC01/DC02 ; le reste → Quad9 (9.9.9.9, 149.112.112.112) en **DNS over TLS** (port 853, certificat `dns.quad9.net` vérifié). Validation **DNSSEC** (`ad.nordis.test` en domaine non validé, car `.test` n'est pas signé), **blocklists** (jeux d'argent, réseaux sociaux, résolveurs DoH), journal des requêtes. Les règles 1 à 4 empêchent tout autre résolveur. Détail et preuves : [DNS sécurisé](dns-securise.md). Zone AD intégrée à l'annuaire, répliquée sur DC02.
 - **DHCP** : adresses distribuées par le VPC. Rôle DHCP Windows configuré pour la démonstration : étendues 10.50.30/40/50.100-200, bail 8 jours, basculement DC01-DC02 en 50/50.
 - **Temps** : pools NTP → FW01 → DC01 (secours Amazon Time Sync) → DC02 et membres ; LNX01 sur les DC (chrony), LNX02 sur FW01.
 - **Ordre de démarrage** : FW01 → DC01, DC02 → LNX01 → SRV02, CLI01, LNX02. Arrêt dans l'ordre inverse.
