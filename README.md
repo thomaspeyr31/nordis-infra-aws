@@ -6,6 +6,26 @@
 ![Debian](https://img.shields.io/badge/Debian-13-A81D33?logo=debian&logoColor=white)
 ![OPNsense](https://img.shields.io/badge/OPNsense-26.7-D94F00?logo=opnsense&logoColor=white)
 
+> 🇬🇧 **English summary** – the full documentation below is in French.
+>
+> **What it is.** The complete IT system of a fictional 80-employee company (Nordis Distribution), **built** and then **secured** on AWS as two practical projects of my Bachelor's year 3 in Infrastructure & Cybersecurity (October – November 2026).
+>
+> **Project 1 – Hybrid Windows / Linux infrastructure as code**
+> - **7 EC2 instances** (Windows Server 2025, Debian 13, OPNsense) in a segmented VPC (`10.50.0.0/16`: servers, DMZ, user and management subnets), created with **Terraform**.
+> - **All traffic goes through the firewall**: every private subnet routes to an OPNsense firewall that handles NAT, DNS, NTP and inter-subnet filtering.
+> - **No administration port exposed to the Internet**: access only through an EC2 Instance Connect Endpoint and an SSH tunnel.
+> - **Every server configured by script**: 18 re-runnable PowerShell and Bash scripts, each with logging and exit codes.
+> - **Services**: redundant Active Directory (2 domain controllers, DNS, DHCP failover), GPOs, AGDLP access model, file server with quotas, WSUS, centralised logs (Windows Event Forwarding, rsyslog), RAID 5 + LVM on Linux, Linux joined to the domain, tested backup and restore.
+>
+> **Project 2 – Controlled and secure DNS**
+> - The firewall becomes the **only DNS resolver** of the company: **DNS over TLS** to Quad9 and **DNSSEC** validation on the Internet side, readable and logged on the internal side.
+> - **Filtering and traceability**: blocklists (gambling, social networks), every query logged with the requesting host.
+> - **Bypass attempts demonstrated, detected and blocked**: direct DNS, direct DNS over TLS, and DNS over HTTPS (by name and by IP), plus a locked browser policy.
+>
+> **Stack**: AWS · Terraform · OPNsense · Windows Server 2025 · Active Directory · PowerShell · Debian · Bash · Unbound · nginx
+>
+> **Author**: Thomas Peyrusaubes – [github.com/thomaspeyr31](https://github.com/thomaspeyr31)
+
 Système d'information d'une PME de 80 salariés, **construit** puis **sécurisé** sur AWS en deux travaux pratiques du Bachelor 3 Infrastructure & Cybersécurité (module A2627_5066 – Administration systèmes Linux/Windows).
 
 > **[Documentation technique complète des TP 1 et 2](DOCUMENTATION.md)** : le dossier d'exploitation demandé par le cahier des charges, chaque exigence reliée à sa réalisation et à sa preuve, avec 36 captures.
