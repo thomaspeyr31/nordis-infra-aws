@@ -1,0 +1,4 @@
+# Generated reports are documentation, not source code:
+# keep them out of the language statistics.
+tp1-infrastructure/docs/rapports/** linguist-documentation
+*.html linguist-generated
